@@ -14,39 +14,50 @@ const Dashboard = () => {
   }, []);
 
   // Fetch Weather Station Data
-  const fetchWeatherStationData = async () => {
-    try {
-      const apiKey = "c763cc19dd77c522caa714fa9779cd9a";
-      const city = "Kolkata";
-      const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`;
+const fetchWeatherStationData = async () => {
+  try {
+    const apiKey = "c763cc19dd77c522caa714fa9779cd9a";
+    const city = "Kolkata";
+    const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`;
 
-      const response = await fetch(url);
-      const data = await response.json();
+    const response = await fetch(url);
+    const data = await response.json();
 
-      const formatted = {
-        temperature: data.main.temp,
-        humidity: data.main.humidity,
-        rain: data.rain ? data.rain["1h"] || 0 : 0,
-        timestamp: new Date().toLocaleString(),
-      };
+    const formatted = {
+      Temperature: data.main.temp,
+      Humidity: data.main.humidity,
+      Rain: data.rain ? data.rain["1h"] || 0 : 0,
+      CreatedAt: new Date().toISOString(), // Match WeatherCard's expected field
+    };
 
-      setWeatherStationData(formatted);
-    } catch (err) {
-      console.error("Error fetching weather station data:", err);
-    }
-  };
+    setWeatherStationData(formatted); // Ensure this function is defined in your component
+  } catch (err) {
+    console.error("Error fetching weather station data:", err);
+  }
+};
+
 
   // Fetch Local Weather Data
   const fetchLocalWeatherData = async () => {
     try {
-      const response = await fetch('/api/local-weather');
+      const response = await fetch('http://localhost:5000/local-weather');
       const data = await response.json();
-
-      setLocalData(data);
-    } catch (err) {
-      console.error("Error fetching local weather data:", err);
+      console.log('Weather:', data);
+  
+      const formatted = {
+        Temperature: data.Temperature,
+        Humidity: data.Humidity,
+        Rain: data.Rain,
+        CreatedAt: data.CreatedAt,
+      };
+  
+      setLocalData(formatted);
+    } catch (error) {
+      console.error('Error fetching local weather data:', error);
     }
   };
+  
+  
 
   // Fetch Predicted Weather Data
   const fetchPredictedWeatherData = async () => {
@@ -61,12 +72,10 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="flex flex-col md:flex-row justify-center gap-6 p-8 bg-gray-50">
-      <WeatherCard title="Weather Station" data={weatherStationData} />
-      <WeatherCard title="Weather Station" data={weatherStationData} />
+    <div className="flex flex-row md:flex-row justify-left gap-1 p-2">
       <WeatherCard title="Weather Station" data={weatherStationData} />
       <WeatherCard title="Local Weather" data={localData} />
-      <WeatherCard title="Predicted Weather" data={predictedData} />
+      {/* <WeatherCard title="Predicted Weather" data={predictedData} /> */}
     </div>
   );
 };

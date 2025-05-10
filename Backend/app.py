@@ -9,19 +9,18 @@ import pytz
 from io import BytesIO
 import google.generativeai as genai
 import requests
+import boto3
+from botocore.exceptions import ClientError
+from flask_cors import CORS
+
 
 app = Flask(__name__)
 CORS(app)
 
 # ------------------ Configuration ------------------ #
-# Google Gemini setup
+# Google Gemini AI setup
 genai.configure(api_key="YOUR_GEMINI_API_KEY")
 gemini_model = genai.GenerativeModel("gemini-1.5-pro")
-
-# MongoDB setup
-client = MongoClient("mongodb+srv://chandnijha630:abc@cluster0.mbrxcya.mongodb.net/?retryWrites=true&w=majority")
-db = client["IOT"]
-collection = db["data"]
 
 # Create upload folder if not exists
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
@@ -30,6 +29,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # ------------------ Utility Functions ------------------ #
 def get_current_ist_time():
+    """Returns the current IST time in YYYY-MM-DD HH:MM:SS format."""
     ist = pytz.timezone("Asia/Kolkata")
     return datetime.now(ist).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -101,33 +101,30 @@ def recommend():
     except Exception as e:
         return jsonify({"error": str(e)})
 
+# AWS Configuration
+region_name = "us-east-2"
+table_name = "farm-data"
+
+# Initialize DynamoDB resource
+dynamodb = boto3.resource('dynamodb', region_name=region_name)
+table = dynamodb.Table(table_name)
 
 @app.route('/local-weather', methods=['GET'])
-def get_latest_local_station_data():
+def fetch_latest_data():
     try:
-        # MongoDB connection
-        client = MongoClient(
-            'mongodb+srv://chandnijha630:abc@cluster0.mbrxcya.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0'
-        )
-        db = client['IOT']
-        collection = db['data']
-        
-        # Fetch the latest data based on timestamp
-        data = collection.find_one(sort=[("CreatedAt", -1)])  
-        
-        if data:
-            # Return the latest data
-            return jsonify({
-                "temperature": data.get("Temperature", 0),
-                "humidity": data.get("Humidity", 0),
-                "rain": data.get("Rain", 0),
-                "timestamp": data.get("CreatedAt", get_current_ist_time()).strftime("%Y-%m-%d %H:%M:%S")
-            })
-        else:
-            return jsonify({"error": "No sensor data found"}), 404
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        # Scan the table to get all records
+        response = table.scan()
 
+        items = response.get("Items", [])
+        if items:
+            # Sort items by CreatedAt and return the latest one
+            latest_entry = max(items, key=lambda x: x.get("id", ""))
+            return jsonify(latest_entry), 200
+        else:
+            return jsonify({"message": "No data found"}), 404
+
+    except ClientError as e:
+        return jsonify({"error": e.response['Error']['Message']}), 500
 
 @app.route('/predicted-weather', methods=['GET'])
 def get_predicted_weather():
